@@ -1,0 +1,33 @@
+=== MAPA DE ENLACE IA-32 ===
+
+Direccion base: 0x00001000
+
+SECCIONES FUSIONADAS:
+  Nombre    Dir Inicio  Tamaño   
+  -------------------------------------
+  .text     0x00001000  42 bytes
+  .data     0x0000102A  10 bytes
+  .bss      0x00001034  0 bytes
+
+DISTRIBUCION DE ARCHIVOS EN SECCIONES:
+  Objeto [0] 'main.obj':
+    .text offset: 0x00000000, size: 22 bytes
+    .data offset: 0x00000000, size: 4 bytes
+    .bss  offset: 0x00000000, size: 0 bytes
+  Objeto [1] 'lib.obj':
+    .text offset: 0x00000016, size: 20 bytes
+    .data offset: 0x00000004, size: 6 bytes
+    .bss  offset: 0x00000000, size: 0 bytes
+
+TABLA GLOBAL DE SIMBOLOS:
+  Nombre                Direccion   Definido  Origen
+  ---------------------------------------------------------------
+  _start                0x00001000  si        Objeto [0] 'main.obj'
+  print_msg             0x00001023  si        Objeto [1] 'lib.obj'
+  calculo               0x00001016  si        Objeto [1] 'lib.obj'
+
+TABLAS LOCALES DE SIMBOLOS (LOCAL / EQU):
+  Objeto [0] 'main.obj':
+    resultado             0x0000102A  LOCAL
+  Objeto [1] 'lib.obj':
+    mensaje               0x0000102E  LOCAL
