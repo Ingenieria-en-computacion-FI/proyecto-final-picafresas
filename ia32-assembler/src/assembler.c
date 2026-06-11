@@ -735,7 +735,6 @@ static void resolve_fixups(AssemblerState *as) {
 
         if (!s->defined) {
             if (s->type == SYM_EXTERN || s->type == SYM_GLOBAL) {
-                // Permitido para objetos relocables. El linker lo resolverá.
                 continue;
             } else {
                 fprintf(stderr, "[assembler] simbolo local no definido: '%s'\n", f->symbol);
@@ -914,6 +913,10 @@ static void handle_instruction(AssemblerState *as, const ASTNode *node) {
                     if (!s) {
                         symbol_define(as, sym, 0,
                                       as->current_section, SYM_LOCAL);
+                        Symbol *placeholder = symbol_lookup(as, sym);
+                        if (placeholder) {
+                            placeholder->defined = 0;
+                        }
                     }
                 } else {
                     uint32_t val = s->value - (uint32_t)instr_end;
@@ -929,7 +932,7 @@ static void handle_instruction(AssemblerState *as, const ASTNode *node) {
 
 static void process_node(AssemblerState *as, const ASTNode *node,
                          int define_symbols) {
-    if (node->label && define_symbols) {
+    if (node->label && define_symbols && node->opcode != DIR_EQU) {
         uint32_t addr = (uint32_t)(
             as->sections[as->current_section].base_addr +
             current_offset(as));
@@ -973,7 +976,9 @@ static void process_node(AssemblerState *as, const ASTNode *node,
         break;
 
     case DIR_EQU:
-        handle_equ(as, node);
+        if (define_symbols) {
+            handle_equ(as, node);
+        }
         break;
 
     case DIR_ORG:
@@ -1007,7 +1012,7 @@ int assemble_one_pass(AssemblerState *as, const ParseResult *ast) {
 
 static void first_pass(AssemblerState *as, const ParseResult *ast) {
     for (ASTNode *n = ast->head; n; n = n->next) {
-        if (n->label) {
+        if (n->label && n->opcode != DIR_EQU) {
             uint32_t addr = (uint32_t)(
                 as->sections[as->current_section].base_addr +
                 current_offset(as));

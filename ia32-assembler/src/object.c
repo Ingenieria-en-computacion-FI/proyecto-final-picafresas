@@ -13,11 +13,10 @@ int write_object_file(const char *filename, const AssemblerState *as) {
     ObjHeader header;
     memset(&header, 0, sizeof(header));
     memcpy(header.magic, OBJ_MAGIC, sizeof(header.magic));
-    header.num_sections = MAX_SECTIONS; // 3 secciones (.text, .data, .bss)
+    header.num_sections = MAX_SECTIONS;
     header.num_symbols = as->num_symbols;
     header.num_relocations = as->num_fixups;
 
-    // Calcular offsets en el archivo
     uint32_t header_sz = sizeof(ObjHeader);
     uint32_t sec_headers_sz = MAX_SECTIONS * sizeof(ObjSectionHeader);
     uint32_t symbols_sz = header.num_symbols * sizeof(ObjSymbol);
@@ -29,42 +28,36 @@ int write_object_file(const char *filename, const AssemblerState *as) {
     ObjSectionHeader sec_hdrs[MAX_SECTIONS];
     memset(sec_hdrs, 0, sizeof(sec_hdrs));
 
-    // .text
     strncpy(sec_hdrs[SEC_TEXT].name, ".text", sizeof(sec_hdrs[SEC_TEXT].name) - 1);
     sec_hdrs[SEC_TEXT].type = SEC_TEXT;
     sec_hdrs[SEC_TEXT].size = as->sections[SEC_TEXT].size;
     sec_hdrs[SEC_TEXT].offset = text_offset;
     sec_hdrs[SEC_TEXT].base_addr = as->sections[SEC_TEXT].base_addr;
 
-    // .data
     strncpy(sec_hdrs[SEC_DATA].name, ".data", sizeof(sec_hdrs[SEC_DATA].name) - 1);
     sec_hdrs[SEC_DATA].type = SEC_DATA;
     sec_hdrs[SEC_DATA].size = as->sections[SEC_DATA].size;
     sec_hdrs[SEC_DATA].offset = data_offset;
     sec_hdrs[SEC_DATA].base_addr = as->sections[SEC_DATA].base_addr;
 
-    // .bss
     strncpy(sec_hdrs[SEC_BSS].name, ".bss", sizeof(sec_hdrs[SEC_BSS].name) - 1);
     sec_hdrs[SEC_BSS].type = SEC_BSS;
     sec_hdrs[SEC_BSS].size = as->sections[SEC_BSS].size;
-    sec_hdrs[SEC_BSS].offset = 0; // Sin datos en archivo
+    sec_hdrs[SEC_BSS].offset = 0;
     sec_hdrs[SEC_BSS].base_addr = as->sections[SEC_BSS].base_addr;
 
-    // Escribir cabecera
     if (fwrite(&header, sizeof(ObjHeader), 1, f) != 1) {
         fprintf(stderr, "[object] Error escribiendo cabecera\n");
         fclose(f);
         return -1;
     }
 
-    // Escribir cabeceras de secciones
     if (fwrite(sec_hdrs, sizeof(ObjSectionHeader), MAX_SECTIONS, f) != MAX_SECTIONS) {
         fprintf(stderr, "[object] Error escribiendo cabeceras de seccion\n");
         fclose(f);
         return -1;
     }
 
-    // Escribir tabla de símbolos
     for (int i = 0; i < as->num_symbols; i++) {
         ObjSymbol sym;
         memset(&sym, 0, sizeof(sym));
@@ -81,7 +74,6 @@ int write_object_file(const char *filename, const AssemblerState *as) {
         }
     }
 
-    // Escribir tabla de relocaciones (fixups)
     for (int i = 0; i < as->num_fixups; i++) {
         ObjRelocation rel;
         memset(&rel, 0, sizeof(rel));
@@ -89,13 +81,6 @@ int write_object_file(const char *filename, const AssemblerState *as) {
         rel.section = as->fixups[i].section;
         rel.offset = as->fixups[i].offset;
         rel.type = as->fixups[i].type;
-        
-        // El addend se puede deducir de los 4 bytes de datos existentes en el offset de fixup,
-        // o si es FIX_REL32, podemos codificar la diferencia respecto al final de la instrucción.
-        // Guardaremos la corrección de fin de instrucción como addend.
-        // E.g., addend = (símbolo - instr_end). En el archivo objeto, guardamos el final de la instrucción
-        // como addend negativo o guardamos directamente el offset del fin de la instrucción relativo al inicio de sección.
-        // Proponemos guardar el offset de fin de instrucción (instr_end) en el campo addend.
         rel.addend = as->fixups[i].instr_end;
 
         if (fwrite(&rel, sizeof(ObjRelocation), 1, f) != 1) {
@@ -105,7 +90,6 @@ int write_object_file(const char *filename, const AssemblerState *as) {
         }
     }
 
-    // Escribir datos de sección .text
     if (as->sections[SEC_TEXT].size > 0) {
         if (fwrite(as->sections[SEC_TEXT].data, 1, as->sections[SEC_TEXT].size, f) != (size_t)as->sections[SEC_TEXT].size) {
             fprintf(stderr, "[object] Error escribiendo datos de .text\n");
@@ -114,7 +98,6 @@ int write_object_file(const char *filename, const AssemblerState *as) {
         }
     }
 
-    // Escribir datos de sección .data
     if (as->sections[SEC_DATA].size > 0) {
         if (fwrite(as->sections[SEC_DATA].data, 1, as->sections[SEC_DATA].size, f) != (size_t)as->sections[SEC_DATA].size) {
             fprintf(stderr, "[object] Error escribiendo datos de .data\n");
@@ -154,17 +137,14 @@ int read_object_file(const char *filename, AssemblerState *as) {
         return -1;
     }
 
-    // Inicializar estado del ensamblador
     assembler_init(as);
 
-    // Configurar secciones
     for (int i = 0; i < MAX_SECTIONS; i++) {
         as->sections[i].type = sec_hdrs[i].type;
         as->sections[i].size = sec_hdrs[i].size;
         as->sections[i].base_addr = sec_hdrs[i].base_addr;
     }
 
-    // Leer símbolos
     as->num_symbols = header.num_symbols;
     for (uint32_t i = 0; i < header.num_symbols; i++) {
         ObjSymbol sym;
@@ -180,7 +160,6 @@ int read_object_file(const char *filename, AssemblerState *as) {
         as->symbols[i].defined = sym.defined;
     }
 
-    // Leer relocaciones
     as->num_fixups = header.num_relocations;
     for (uint32_t i = 0; i < header.num_relocations; i++) {
         ObjRelocation rel;
@@ -196,7 +175,6 @@ int read_object_file(const char *filename, AssemblerState *as) {
         as->fixups[i].instr_end = rel.addend;
     }
 
-    // Leer datos de .text
     if (as->sections[SEC_TEXT].size > 0) {
         fseek(f, sec_hdrs[SEC_TEXT].offset, SEEK_SET);
         if (fread(as->sections[SEC_TEXT].data, 1, as->sections[SEC_TEXT].size, f) != (size_t)as->sections[SEC_TEXT].size) {
@@ -206,7 +184,6 @@ int read_object_file(const char *filename, AssemblerState *as) {
         }
     }
 
-    // Leer datos de .data
     if (as->sections[SEC_DATA].size > 0) {
         fseek(f, sec_hdrs[SEC_DATA].offset, SEEK_SET);
         if (fread(as->sections[SEC_DATA].data, 1, as->sections[SEC_DATA].size, f) != (size_t)as->sections[SEC_DATA].size) {

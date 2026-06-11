@@ -19,16 +19,14 @@ void dump_object_file(const char *filename) {
     const char *sym_types[] = {"LOCAL", "GLOBAL", "EXTERN", "EQU"};
     const char *rel_types[] = {"FIX_REL32", "FIX_ABS32"};
 
-    // 1. Cabecera
     printf("CABECERA:\n");
     printf("  Magic:      IA32OBJ\n");
     printf("  Secciones:  %d\n", MAX_SECTIONS);
-    printf("  Símbolos:   %d\n", as.num_symbols);
+    printf("  Simbolos:   %d\n", as.num_symbols);
     printf("  Relocs:     %d\n\n", as.num_fixups);
 
-    // 2. Secciones
     printf("SECCIONES:\n");
-    printf("  Idx  %-8s  %-10s  %-10s\n", "Nombre", "Tamaño", "Dir Base");
+    printf("  Idx  %-8s  %-10s  %-10s\n", "Nombre", "Tamano", "Dir Base");
     printf("  -------------------------------------\n");
     for (int i = 0; i < MAX_SECTIONS; i++) {
         printf("  %3d  %-8s  %u bytes  0x%08X\n",
@@ -36,10 +34,9 @@ void dump_object_file(const char *filename) {
     }
     printf("\n");
 
-    // 3. Símbolos
-    printf("TABLA DE SÍMBOLOS (%d entradas):\n", as.num_symbols);
+    printf("TABLA DE SIMBOLOS (%d entradas):\n", as.num_symbols);
     printf("  %-20s  %-8s  %-8s  %-7s  %s\n",
-           "Nombre", "Valor", "Sección", "Tipo", "Definido");
+           "Nombre", "Valor", "seccion", "Tipo", "Definido");
     printf("  ------------------------------------------------------\n");
     for (int i = 0; i < as.num_symbols; i++) {
         Symbol *s = &as.symbols[i];
@@ -48,14 +45,13 @@ void dump_object_file(const char *filename) {
             sec_name = sec_names[s->section];
         }
         printf("  %-20s  %08X  %-8s  %-7s  %s\n",
-               s->name, s->value, sec_name, sym_types[s->type], s->defined ? "sí" : "no");
+               s->name, s->value, sec_name, sym_types[s->type], s->defined ? "si" : "no");
     }
     printf("\n");
 
-    // 4. Relocaciones
     printf("TABLA DE RELOCACIONES (%d entradas):\n", as.num_fixups);
     printf("  %-20s  %-8s  %-8s  %-10s  %s\n",
-           "Símbolo", "Sección", "Offset", "Tipo", "Fin Instr / Addend");
+           "Simbolo", "seccion", "Offset", "Tipo", "Fin Instr / Addend");
     printf("  ---------------------------------------------------------------\n");
     for (int i = 0; i < as.num_fixups; i++) {
         Fixup *f = &as.fixups[i];
@@ -68,13 +64,12 @@ void dump_object_file(const char *filename) {
     }
     printf("\n");
 
-    // 5. Hexdump de secciones con datos
     for (int s = 0; s < MAX_SECTIONS; s++) {
-        if (s == SEC_BSS) continue; // .bss no tiene datos físicos en el objeto
+        if (s == SEC_BSS) continue;
         Section *sec = &as.sections[s];
         if (sec->size == 0) continue;
 
-        printf("HEXDUMP SECCIÓN %s (%d bytes):\n", sec->name, sec->size);
+        printf("HEXDUMP seccion %s (%d bytes):\n", sec->name, sec->size);
         for (int i = 0; i < sec->size; i++) {
             if (i % 16 == 0) {
                 printf("  %04X: ", i);

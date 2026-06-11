@@ -9,7 +9,7 @@
 
 typedef struct {
     char name[64];
-    uint32_t value;           // Dirección absoluta final en memoria
+    uint32_t value;
     int defined;
     int object_file_index;
     SymbolType type;
@@ -111,7 +111,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Cargar todos los archivos objeto
     static AssemblerState inputs[MAX_INPUT_FILES];
     for (int i = 0; i < num_inputs; i++) {
         printf("[linker] Cargando objeto '%s'...\n", input_files[i]);
@@ -121,7 +120,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Calcular offsets de secciones para fusionado secuencial
     uint32_t text_offsets[MAX_INPUT_FILES];
     uint32_t data_offsets[MAX_INPUT_FILES];
     uint32_t bss_offsets[MAX_INPUT_FILES];
@@ -141,7 +139,6 @@ int main(int argc, char *argv[]) {
         total_bss_size += inputs[i].sections[SEC_BSS].size;
     }
 
-    // Calcular direcciones de inicio de las secciones fusionadas
     uint32_t text_base = base_addr;
     uint32_t data_base = text_base + total_text_size;
     uint32_t bss_base = data_base + total_data_size;
@@ -151,7 +148,6 @@ int main(int argc, char *argv[]) {
     printf("  .data: 0x%08X (size %u bytes)\n", data_base, total_data_size);
     printf("  .bss : 0x%08X (size %u bytes)\n\n", bss_base, total_bss_size);
 
-    // Registrar todos los símbolos globales y externos
     int linker_errors = 0;
     for (int i = 0; i < num_inputs; i++) {
         for (int j = 0; j < inputs[i].num_symbols; j++) {
@@ -177,7 +173,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Validar que todos los símbolos externos estén resueltos
     for (int i = 0; i < num_global_symbols; i++) {
         if (!global_symbols[i].defined) {
             fprintf(stderr, "[linker] error: simbolo externo '%s' no resuelto\n", global_symbols[i].name);
@@ -190,11 +185,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Búferes para fusionar secciones
     uint8_t *merged_text = calloc(1, total_text_size > 0 ? total_text_size : 1);
     uint8_t *merged_data = calloc(1, total_data_size > 0 ? total_data_size : 1);
 
-    // Copiar bytes de secciones a búferes fusionados
     for (int i = 0; i < num_inputs; i++) {
         if (inputs[i].sections[SEC_TEXT].size > 0) {
             memcpy(merged_text + text_offsets[i], inputs[i].sections[SEC_TEXT].data, inputs[i].sections[SEC_TEXT].size);
@@ -204,7 +197,6 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // Aplicar relocaciones
     printf("[linker] Aplicando relocaciones...\n");
     for (int i = 0; i < num_inputs; i++) {
         for (int r = 0; r < inputs[i].num_fixups; r++) {
@@ -212,7 +204,6 @@ int main(int argc, char *argv[]) {
             uint32_t sym_addr = 0;
             int found = 0;
 
-            // 1. Buscar en la tabla de símbolos local del objeto i
             for (int s_idx = 0; s_idx < inputs[i].num_symbols; s_idx++) {
                 Symbol *s = &inputs[i].symbols[s_idx];
                 if (strcmp(s->name, rel->symbol) == 0 && s->defined && s->type != SYM_EXTERN) {
@@ -229,7 +220,6 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            // 2. Si no se encontró localmente, buscar en la tabla de símbolos global
             if (!found) {
                 GlobalSymbol *gs = find_global_symbol(rel->symbol);
                 if (gs && gs->defined) {
@@ -245,7 +235,6 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            // Aplicar el parche
             uint8_t *patch_ptr = NULL;
 
             if (rel->section == SEC_TEXT) {
@@ -267,7 +256,6 @@ int main(int argc, char *argv[]) {
                        i, rel->symbol, rel->section == SEC_TEXT ? ".text" : ".data",
                        text_offsets[i] + rel->offset, val_to_write);
             } else if (rel->type == FIX_REL32) {
-                // Dirección de fin de instrucción: instr_end_addr
                 uint32_t instr_end_addr = text_base + text_offsets[i] + rel->instr_end;
                 val_to_write = sym_addr - instr_end_addr + existing_val;
                 printf("  [REL32] Objeto %d: Parcheado '%s' en offset %s:0x%04X con valor relativo 0x%08X (PC=0x%08X)\n",
@@ -286,7 +274,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Escribir el ejecutable binario final
     FILE *out = fopen(output_file, "wb");
     if (!out) {
         perror("[linker] Error abriendo archivo de salida");
@@ -306,7 +293,6 @@ int main(int argc, char *argv[]) {
     printf("\n[linker] Enlace exitoso. Binario final escrito a '%s' (%u bytes)\n",
            output_file, total_text_size + total_data_size);
 
-    // Escribir archivo de mapa (.map) para depuración
     char map_file[256];
     snprintf(map_file, sizeof(map_file), "%s.map", output_file);
     FILE *map = fopen(map_file, "w");
@@ -314,7 +300,7 @@ int main(int argc, char *argv[]) {
         fprintf(map, "=== MAPA DE ENLACE IA-32 ===\n\n");
         fprintf(map, "Direccion base: 0x%08X\n\n", base_addr);
         fprintf(map, "SECCIONES FUSIONADAS:\n");
-        fprintf(map, "  %-8s  %-10s  %-10s\n", "Nombre", "Dir Inicio", "Tamaño");
+        fprintf(map, "  %-8s  %-10s  %-10s\n", "Nombre", "Dir Inicio", "Tamano");
         fprintf(map, "  -------------------------------------\n");
         fprintf(map, "  %-8s  0x%08X  %u bytes\n", ".text", text_base, total_text_size);
         fprintf(map, "  %-8s  0x%08X  %u bytes\n", ".data", data_base, total_data_size);
